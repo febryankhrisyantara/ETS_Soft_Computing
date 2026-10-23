@@ -3,21 +3,22 @@ import random
 import copy
 
 # ==========================================
-# 1. MEMBACA DATASET CSV
+# 1. MEMBACA & PRA-PEMROSESAN DATASET
 # ==========================================
+# Membaca file CSV
 df_dosen = pd.read_csv("dataset - dosen.csv")
 df_ruangan = pd.read_csv("dataset - ruangan.csv")
 df_slot = pd.read_csv("dataset - slot_waktu.csv")
 df_mk = pd.read_csv("dataset - mata_kuliah.csv")
 
-# Mengubah data dataframe ke bentuk list/dictionary agar mudah diproses
+# Ekstraksi ID untuk randomisasi
 list_ruangan = df_ruangan['id_ruangan'].tolist()
 list_slot = df_slot['id_slot'].tolist()
 
-# Pra-pemrosesan data mata kuliah (membersihkan nama dosen yang tergabung oleh koma)
+# Preprocessing: Memisahkan multi-dosen pada mata kuliah
 data_mk = []
 for index, row in df_mk.iterrows():
-    # Split nama dosen jika ada lebih dari 1 (misal: "Pak_Izzat, Pak_Dito")
+    # Split teks dosen berdasarkan koma dan hilangkan spasi ekstra
     dosen_pengajar = [d.strip() for d in str(row['dosen']).split(',')]
     data_mk.append({
         "id_mk": row['id_mk'],
@@ -26,60 +27,58 @@ for index, row in df_mk.iterrows():
     })
 
 # ==========================================
-# 2. REPRESENTASI KROMOSOM & INISIALISASI
+# 2. TAHAP 1: INISIALISASI POPULASI
 # ==========================================
 def create_chromosome():
     """Membuat 1 jadwal acak untuk seluruh mata kuliah."""
     schedule = []
     for mk in data_mk:
-        gene = {
+        schedule.append({
             "id_mk": mk["id_mk"],
             "nama_mk": mk["nama_mk"],
-            "dosen": mk["dosen"], # List nama dosen
+            "dosen": mk["dosen"],
             "ruangan": random.choice(list_ruangan),
             "slot_waktu": random.choice(list_slot)
-        }
-        schedule.append(gene)
+        })
     return schedule
 
 # ==========================================
-# 3. FUNGSI FITNESS (EVALUASI BENTROK)
+# 3. TAHAP 2: EVALUASI (FITNESS)
 # ==========================================
 def calculate_fitness(chromosome):
-    """Menghitung penalti jadwal. Semakin kecil penalti, semakin baik."""
+    """Menghitung penalti jadwal. Mengembalikan (skor fitness, jumlah penalti)"""
     penalty = 0
     total_genes = len(chromosome)
     
     for i in range(total_genes):
         for j in range(i + 1, total_genes):
-            # Cek apakah jadwal i dan j berada di waktu yang sama
+            # Jika dua kelas berjalan pada waktu yang sama
             if chromosome[i]["slot_waktu"] == chromosome[j]["slot_waktu"]:
                 
-                # Penalti 1: Bentrok Ruangan
+                # Cek Bentrok Ruangan
                 if chromosome[i]["ruangan"] == chromosome[j]["ruangan"]:
                     penalty += 1
                 
-                # Penalti 2: Bentrok Dosen
-                # Memeriksa irisan (intersection) antara list dosen di kelas i dan kelas j
+                # Cek Bentrok Dosen (Intersection list dosen)
                 dosen_i = set(chromosome[i]["dosen"])
                 dosen_j = set(chromosome[j]["dosen"])
-                if not dosen_i.isdisjoint(dosen_j): # True jika ada dosen yang sama
+                if not dosen_i.isdisjoint(dosen_j): 
                     penalty += 1
                     
-    # Fitness formula: 1 / (1 + penalti). Sempurna jika = 1.0 (Penalti = 0)
-    return 1.0 / (1.0 + penalty)
+    # Fitness formula: 1 / (1 + penalti). Sempurna jika = 1.0
+    return 1.0 / (1.0 + penalty), penalty
 
 # ==========================================
-# 4. OPERATOR GENETIKA (MUTASI & CROSSOVER)
+# 4. TAHAP 4 & 5: CROSSOVER & MUTASI
 # ==========================================
 def crossover(parent1, parent2):
-    """Single-point crossover: Menggabungkan separuh jadwal Parent 1 & 2"""
+    """Menggabungkan separuh jadwal Parent 1 & 2"""
     split_point = len(parent1) // 2
     child = parent1[:split_point] + parent2[split_point:]
     return copy.deepcopy(child)
 
 def mutate(chromosome, mutation_rate=0.1):
-    """Mutasi: Mengganti ruangan atau waktu secara acak pada beberapa mata kuliah"""
+    """Mengganti ruangan atau waktu secara acak pada beberapa mata kuliah"""
     for gene in chromosome:
         if random.random() < mutation_rate:
             gene["ruangan"] = random.choice(list_ruangan)
@@ -87,67 +86,78 @@ def mutate(chromosome, mutation_rate=0.1):
     return chromosome
 
 # ==========================================
-# 5. MAIN LOOP ALGORITMA GENETIKA
+# 5. TAHAP 3 & 6: MAIN LOOP (SELEKSI & ITERASI)
 # ==========================================
 POPULATION_SIZE = 50
 GENERATIONS = 200
 MUTATION_RATE = 0.1
 
-# Inisialisasi populasi awal
+# Membuat populasi awal
 population = [create_chromosome() for _ in range(POPULATION_SIZE)]
 
-print("Mulai mencari jadwal optimal...")
+print("="*50)
+print("MEMULAI PENCARIAN JADWAL OPTIMAL")
+print("="*50)
+
 best_schedule = None
+history_penalty = float('inf')
 
 for gen in range(GENERATIONS):
-    # Evaluasi fitness untuk semua kromosom
-    population = sorted(population, key=calculate_fitness, reverse=True)
+    # Evaluasi & Urutkan populasi (terbaik di index 0)
+    population = sorted(population, key=lambda x: calculate_fitness(x)[0], reverse=True)
     
-    best_fitness = calculate_fitness(population[0])
+    best_fitness, current_penalty = calculate_fitness(population[0])
+    
+    # Log Pelacakan: Cetak jika menemukan kombinasi yang lebih baik
+    if current_penalty < history_penalty:
+        print(f"[Generasi {gen:03d}] Ditemukan jadwal lebih baik! | Sisa Bentrok: {current_penalty} | Fitness: {best_fitness:.4f}")
+        history_penalty = current_penalty
     
     # Hentikan pencarian jika tidak ada yang bentrok (Fitness == 1.0)
-    if best_fitness == 1.0:
+    if current_penalty == 0:
         best_schedule = population[0]
-        print(f"Jadwal optimal DITEMUKAN pada generasi {gen}!")
+        print(f"\n>>> JADWAL SEMPURNA DITEMUKAN PADA GENERASI {gen} <<<")
         break
         
-    # Elitism: Membawa 10 jadwal terbaik langsung ke generasi selanjutnya
+    # Seleksi (Elitism): Membawa 10 jadwal terbaik langsung ke generasi selanjutnya
     next_generation = population[:10]
     
-    # Melengkapi sisa populasi dengan Crossover dan Mutasi
+    # Melengkapi sisa populasi dengan Reproduksi (Crossover + Mutasi)
     while len(next_generation) < POPULATION_SIZE:
-        # Memilih 2 induk dari top 50% populasi (Turnamen sederhana)
+        # Seleksi Turnamen (Memilih 2 induk dari top 50% populasi)
         p1 = random.choice(population[:POPULATION_SIZE//2])
         p2 = random.choice(population[:POPULATION_SIZE//2])
         
-        # Crossover & Mutasi
         child = crossover(p1, p2)
         child = mutate(child, MUTATION_RATE)
         next_generation.append(child)
         
     population = next_generation
 
-if best_fitness < 1.0:
+# Jika loop selesai tapi belum sempurna, ambil yang terbaik
+if history_penalty > 0:
     best_schedule = population[0]
-    print(f"Batas generasi tercapai. Menampilkan jadwal terbaik dengan skor: {best_fitness:.4f}")
+    print(f"\nBatas generasi tercapai. Menampilkan jadwal terbaik dengan sisa bentrok: {history_penalty}")
 
 # ==========================================
 # 6. MENAMPILKAN DAN MENYIMPAN HASIL
 # ==========================================
-# Konversi jadwal terbaik ke dalam DataFrame untuk dilihat/disimpan
+# Konversi jadwal terbaik kembali ke dalam DataFrame
 df_hasil = pd.DataFrame(best_schedule)
-df_hasil['dosen'] = df_hasil['dosen'].apply(lambda x: ', '.join(x)) # Gabung kembali list dosen
+df_hasil['dosen'] = df_hasil['dosen'].apply(lambda x: ', '.join(x)) # Gabungkan kembali nama dosen
 
-# Merge (Join) dengan file CSV lainnya untuk mendapatkan nama_ruangan dan hari/jam
+# Merge dengan file CSV lainnya untuk mendapatkan nama ruangan, hari, dan jam
 df_hasil = df_hasil.merge(df_ruangan[['id_ruangan', 'nama_ruangan']], left_on='ruangan', right_on='id_ruangan', how='left')
 df_hasil = df_hasil.merge(df_slot, left_on='slot_waktu', right_on='id_slot', how='left')
 
-# Rapihkan urutan kolom agar mudah dibaca
+# Rapikan urutan kolom agar mudah dibaca
 df_hasil = df_hasil[['id_mk', 'nama_mk', 'dosen', 'nama_ruangan', 'hari', 'mulai', 'selesai']]
 df_hasil = df_hasil.sort_values(by=['hari', 'mulai', 'nama_ruangan'])
 
-print("\nHasil Penjadwalan:\n")
+print("\n" + "="*70)
+print("HASIL AKHIR PENJADWALAN:")
+print("="*70)
 print(df_hasil.to_string(index=False))
 
-# (Opsional) Simpan ke Excel/CSV
-# df_hasil.to_csv("jadwal_optimal.csv", index=False)
+# (Opsional) Simpan ke CSV jika dibutuhkan
+# df_hasil.to_csv("jadwal_optimal_terbaru.csv", index=False)
