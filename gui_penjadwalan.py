@@ -12,10 +12,12 @@ class JadwalApp:
         self.root.title("Sistem Penjadwalan GA - ITS Soft Computing")
         self.root.geometry("950x650")
         
+        # Variabel Parameter GA
         self.pop_size_var = tk.IntVar(value=50)
         self.gen_var = tk.IntVar(value=200)
         self.mut_rate_var = tk.DoubleVar(value=0.1)
         
+        # Variabel Penampung Hasil
         self.df_hasil_terakhir = None
         
         self.create_widgets()
@@ -36,7 +38,7 @@ class JadwalApp:
         self.btn_run = tk.Button(frame_kontrol, text="Mulai GA", bg="green", fg="white", font=("Arial", 9, "bold"), command=self.start_thread)
         self.btn_run.grid(row=0, column=6, padx=10)
         
-        # export to csv button
+        # export csv
         self.btn_export = tk.Button(frame_kontrol, text="Ekspor CSV", bg="green", fg="white", font=("Arial", 9, "bold"), state="disabled", command=self.export_csv)
         self.btn_export.grid(row=0, column=7, padx=5)
         
@@ -67,16 +69,16 @@ class JadwalApp:
     def write_log(self, message):
         """Fungsi untuk menulis log ke kotak teks secara aman dari thread lain"""
         self.log_text.insert(tk.END, message + "\n")
-        self.log_text.see(tk.END)
+        self.log_text.see(tk.END) 
         
     def start_thread(self):
         """Memulai proses GA di thread terpisah agar GUI tidak freeze (Not Responding)"""
         self.btn_run.config(state="disabled", text="Memproses...")
         self.btn_export.config(state="disabled")
-        self.log_text.delete(1.0, tk.END) 
+        self.log_text.delete(1.0, tk.END)
         self.df_hasil_terakhir = None
         
-        # clear previous data 
+        # clear previous data
         for item in self.tree.get_children():
             self.tree.delete(item)
             
@@ -100,12 +102,12 @@ class JadwalApp:
                     "id_mk": row['id_mk'], "nama_mk": row['nama_mk'], "dosen": dosen_pengajar
                 })
                 
-            # GA params gui
+            # input GA params
             POP_SIZE = self.pop_size_var.get()
             GENS = self.gen_var.get()
             MUT_RATE = self.mut_rate_var.get()
             
-            # Genetic algorithm
+            # 2. kromosonm
             def create_chrom():
                 return [{"id_mk": mk["id_mk"], "nama_mk": mk["nama_mk"], "dosen": mk["dosen"],
                          "ruangan": random.choice(list_ruangan), "slot_waktu": random.choice(list_slot)} 
@@ -121,7 +123,7 @@ class JadwalApp:
                             if not set(chrom[i]["dosen"]).isdisjoint(set(chrom[j]["dosen"])): pen += 1
                 return 1.0 / (1.0 + pen), pen
 
-            # Evolution
+            # evolusi
             self.write_log(f"[INFO] Membangkitkan {POP_SIZE} populasi awal...")
             population = [create_chrom() for _ in range(POP_SIZE)]
             
@@ -133,14 +135,13 @@ class JadwalApp:
                 best_fit, current_pen = fitness(population[0])
                 
                 if current_pen < history_penalty:
-                    # logs on gui
                     msg = f"[Generasi {gen:03d}] Penalti Bentrok turun menjadi: {current_pen} (Fitness: {best_fit:.4f})"
                     self.root.after(0, self.write_log, msg)
                     history_penalty = current_pen
                     
                 if current_pen == 0:
                     best_schedule = population[0]
-                    self.root.after(0, self.write_log, f">>> JADWAL SEMPURNA DITEMUKAN PADA GENERASI {gen} <<<")
+                    self.root.after(0, self.write_log, f">>> Jadwal optimal ditemukan pada generasi ke-{gen} <<<")
                     break
                     
                 # reproduksi
@@ -153,7 +154,7 @@ class JadwalApp:
                     sp = len(p1) // 2
                     child = copy.deepcopy(p1[:sp] + p2[sp:])
                     
-                    # mutation
+                    # mutasi
                     for gene in child:
                         if random.random() < MUT_RATE:
                             gene["ruangan"] = random.choice(list_ruangan)
@@ -166,7 +167,6 @@ class JadwalApp:
                 best_schedule = population[0]
                 self.root.after(0, self.write_log, f"Batas generasi habis. Sisa bentrok terendah: {history_penalty}")
                 
-            # gui table
             self.write_log("[INFO] Merapikan dan memasukkan data ke tabel...")
             df_hasil = pd.DataFrame(best_schedule)
             df_hasil['dosen'] = df_hasil['dosen'].apply(lambda x: ', '.join(x))
@@ -187,19 +187,19 @@ class JadwalApp:
             self.root.after(0, self.enable_controls)
 
     def update_table(self, df_hasil):
-        # data hasil to treeview
+        """Memasukkan data hasil ke tabel Treeview"""
         for _, row in df_hasil.iterrows():
             self.tree.insert("", "end", values=list(row))
         messagebox.showinfo("Selesai", "Proses penjadwalan telah selesai!")
 
     def enable_controls(self):
-        # control buttons re-enabled
+        """Aktifkan kembali tombol kontrol setelah proses selesai"""
         self.btn_run.config(state="normal", text="Mulai GA")
         if self.df_hasil_terakhir is not None:
             self.btn_export.config(state="normal")
 
     def export_csv(self):
-        # export to csv
+        """Fungsi untuk mengekspor DataFrame hasil ke file CSV"""
         if self.df_hasil_terakhir is None or self.df_hasil_terakhir.empty:
             messagebox.showwarning("Peringatan", "Belum ada data jadwal yang dapat diekspor!")
             return
@@ -217,7 +217,6 @@ class JadwalApp:
                 self.write_log(f"[INFO] File berhasil diekspor ke: {file_path}")
             except Exception as e:
                 messagebox.showerror("Error", f"Gagal menyimpan file: {str(e)}")
-
 
 if __name__ == "__main__":
     root = tk.Tk()
