@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 import pandas as pd
 import random
 import copy
@@ -10,31 +10,38 @@ class JadwalApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Sistem Penjadwalan GA - ITS Soft Computing")
-        self.root.geometry("900x600")
+        self.root.geometry("950x650")
         
-        # Variabel Parameter
+        # Variabel Parameter GA
         self.pop_size_var = tk.IntVar(value=50)
         self.gen_var = tk.IntVar(value=200)
         self.mut_rate_var = tk.DoubleVar(value=0.1)
+        
+        # Variabel Penampung Hasil
+        self.df_hasil_terakhir = None
         
         self.create_widgets()
         
     def create_widgets(self):
         # --- FRAME 1: PARAMETER & KONTROL ---
-        frame_kontrol = tk.LabelFrame(self.root, text="Konfigurasi Parameter GA", padx=10, pady=10)
+        frame_kontrol = tk.LabelFrame(self.root, text="Konfigurasi Parameter GA & Kontrol", padx=10, pady=10)
         frame_kontrol.pack(fill="x", padx=10, pady=5)
         
         tk.Label(frame_kontrol, text="Ukuran Populasi:").grid(row=0, column=0, sticky="w")
-        tk.Entry(frame_kontrol, textvariable=self.pop_size_var, width=10).grid(row=0, column=1, padx=5)
+        tk.Entry(frame_kontrol, textvariable=self.pop_size_var, width=8).grid(row=0, column=1, padx=5)
         
         tk.Label(frame_kontrol, text="Maksimal Generasi:").grid(row=0, column=2, sticky="w", padx=10)
-        tk.Entry(frame_kontrol, textvariable=self.gen_var, width=10).grid(row=0, column=3, padx=5)
+        tk.Entry(frame_kontrol, textvariable=self.gen_var, width=8).grid(row=0, column=3, padx=5)
         
         tk.Label(frame_kontrol, text="Mutation Rate:").grid(row=0, column=4, sticky="w", padx=10)
-        tk.Entry(frame_kontrol, textvariable=self.mut_rate_var, width=10).grid(row=0, column=5, padx=5)
+        tk.Entry(frame_kontrol, textvariable=self.mut_rate_var, width=8).grid(row=0, column=5, padx=5)
         
-        self.btn_run = tk.Button(frame_kontrol, text="Mulai Pemrosesan GA", bg="green", fg="white", font=("Arial", 10, "bold"), command=self.start_thread)
-        self.btn_run.grid(row=0, column=6, padx=20)
+        self.btn_run = tk.Button(frame_kontrol, text="Mulai GA", bg="green", fg="white", font=("Arial", 9, "bold"), command=self.start_thread)
+        self.btn_run.grid(row=0, column=6, padx=10)
+        
+        # Tombol Ekspor CSV
+        self.btn_export = tk.Button(frame_kontrol, text="💾 Ekspor CSV", bg="#007bff", fg="white", font=("Arial", 9, "bold"), state="disabled", command=self.export_csv)
+        self.btn_export.grid(row=0, column=7, padx=5)
         
         # --- FRAME 2: LOG PROSES (LIVE MONITORING) ---
         frame_log = tk.LabelFrame(self.root, text="Live Monitoring (Log Evolusi)", padx=10, pady=10)
@@ -69,8 +76,10 @@ class JadwalApp:
         
     def start_thread(self):
         """Memulai proses GA di thread terpisah agar GUI tidak freeze (Not Responding)"""
-        self.btn_run.config(state="disabled", text="Sedang Memproses...")
+        self.btn_run.config(state="disabled", text="Memproses...")
+        self.btn_export.config(state="disabled")
         self.log_text.delete(1.0, tk.END) # Bersihkan log sebelumnya
+        self.df_hasil_terakhir = None
         
         # Hapus data di tabel jika ada
         for item in self.tree.get_children():
@@ -130,7 +139,7 @@ class JadwalApp:
                 best_fit, current_pen = fitness(population[0])
                 
                 if current_pen < history_penalty:
-                    # Tampilkan log di GUI menggunakan metode thread-safe (after)
+                    # Tampilkan log di GUI menggunakan metode thread-safe
                     msg = f"[Generasi {gen:03d}] Penalti Bentrok turun menjadi: {current_pen} (Fitness: {best_fit:.4f})"
                     self.root.after(0, self.write_log, msg)
                     history_penalty = current_pen
@@ -157,7 +166,7 @@ class JadwalApp:
                             gene["slot_waktu"] = random.choice(list_slot)
                     next_gen.append(child)
                 population = next_gen
-                time.sleep(0.01) # Memberi nafas sedikit agar GUI sangat responsif
+                time.sleep(0.01) # Memberi nafas sedikit agar GUI responsif
                 
             if history_penalty > 0:
                 best_schedule = population[0]
@@ -173,6 +182,9 @@ class JadwalApp:
             df_hasil = df_hasil[['id_mk', 'nama_mk', 'dosen', 'nama_ruangan', 'hari', 'mulai', 'selesai']]
             df_hasil = df_hasil.sort_values(by=['hari', 'mulai', 'nama_ruangan'])
             
+            # Simpan hasil ke atribut kelas
+            self.df_hasil_terakhir = df_hasil
+            
             # Memasukkan baris DataFrame ke Tkinter Treeview secara thread-safe
             self.root.after(0, self.update_table, df_hasil)
             
@@ -181,13 +193,39 @@ class JadwalApp:
             
         finally:
             # Kembalikan tombol ke keadaan semula
-            self.root.after(0, lambda: self.btn_run.config(state="normal", text="Mulai Pemrosesan GA"))
+            self.root.after(0, self.enable_controls)
 
     def update_table(self, df_hasil):
         """Memasukkan data hasil ke tabel Treeview"""
         for _, row in df_hasil.iterrows():
             self.tree.insert("", "end", values=list(row))
         messagebox.showinfo("Selesai", "Proses penjadwalan telah selesai!")
+
+    def enable_controls(self):
+        """Aktifkan kembali tombol kontrol setelah proses selesai"""
+        self.btn_run.config(state="normal", text="Mulai GA")
+        if self.df_hasil_terakhir is not None:
+            self.btn_export.config(state="normal")
+
+    def export_csv(self):
+        """Fungsi untuk mengekspor DataFrame hasil ke file CSV"""
+        if self.df_hasil_terakhir is None or self.df_hasil_terakhir.empty:
+            messagebox.showwarning("Peringatan", "Belum ada data jadwal yang dapat diekspor!")
+            return
+            
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV File", "*.csv"), ("All Files", "*.*")],
+            title="Simpan Hasil Penjadwalan"
+        )
+        
+        if file_path:
+            try:
+                self.df_hasil_terakhir.to_csv(file_path, index=False)
+                messagebox.showinfo("Berhasil", f"Data jadwal berhasil disimpan ke:\n{file_path}")
+                self.write_log(f"[INFO] File berhasil diekspor ke: {file_path}")
+            except Exception as e:
+                messagebox.showerror("Error", f"Gagal menyimpan file: {str(e)}")
 
 # Inisiasi Aplikasi
 if __name__ == "__main__":
