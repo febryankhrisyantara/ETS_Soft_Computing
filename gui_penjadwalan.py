@@ -225,11 +225,11 @@ class JadwalApp:
                 if best[0] == 0:
                     break
 
-            pen, slot, room = best
+            _, slot, room = best
             used_rooms.add((slot, room))
             used_dosen.update((slot, d) for d in mk["dosen"])
             self.log(f"[Langkah {step:02d}/{len(ordered)}] {mk['id_mk']} ({mk['nama_mk']}) -> "
-                     f"slot {slot}, ruangan {room} | penalti: {pen}")
+                     f"slot {slot}, ruangan {room}")
             schedule.append({"id_mk": mk["id_mk"], "nama_mk": mk["nama_mk"], "dosen": mk["dosen"],
                              "ruangan": room, "slot_waktu": slot})
         return schedule
