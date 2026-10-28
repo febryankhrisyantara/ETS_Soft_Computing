@@ -212,7 +212,7 @@ class JadwalApp:
         schedule = []
 
         self.log(f"[INFO] Greedy menjadwalkan {len(ordered)} mata kuliah...")
-        for mk in ordered:
+        for step, mk in enumerate(ordered, start=1):
             best = None  # (penalty, slot, room)
             for slot in list_slot:
                 for room in list_ruangan:
@@ -225,9 +225,11 @@ class JadwalApp:
                 if best[0] == 0:
                     break
 
-            _, slot, room = best
+            pen, slot, room = best
             used_rooms.add((slot, room))
             used_dosen.update((slot, d) for d in mk["dosen"])
+            self.log(f"[Langkah {step:02d}/{len(ordered)}] {mk['id_mk']} ({mk['nama_mk']}) -> "
+                     f"slot {slot}, ruangan {room} | penalti: {pen}")
             schedule.append({"id_mk": mk["id_mk"], "nama_mk": mk["nama_mk"], "dosen": mk["dosen"],
                              "ruangan": room, "slot_waktu": slot})
         return schedule
@@ -257,10 +259,8 @@ class JadwalApp:
                 best_schedule = self.solve_ga(data_mk, list_ruangan, list_slot, params)
             elapsed = time.perf_counter() - start
 
-            penalty = self.penalty_of(best_schedule)
-            self.log(f"[HASIL] {algo} | Sisa bentrok: {penalty} | Running time: {elapsed:.4f} detik")
-            self.root.after(0, self.runtime_var.set,
-                            f"Running time ({algo}): {elapsed:.4f} detik  |  Sisa bentrok: {penalty}")
+            self.log(f"[HASIL] {algo} | Running time: {elapsed:.4f} detik")
+            self.root.after(0, self.runtime_var.set, f"Running time ({algo}): {elapsed:.4f} detik")
 
             self.log("[INFO] Merapikan dan memasukkan data ke tabel...")
             df_hasil = pd.DataFrame(best_schedule)
