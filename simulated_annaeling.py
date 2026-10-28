@@ -104,7 +104,7 @@ def simulated_annealing(
         best_schedule = copy.deepcopy(current_schedule)
         best_penalty = current_penalty
         print(
-            f"Iterasi {iteration:04d} | Suhu: {temp:.2f} | Penalti turun"
+            f"Iterasi {iteration:04d} | Suhu: {temp:.7f} | Penalti turun"
             f" menjadi: {best_penalty}"
         )
 
