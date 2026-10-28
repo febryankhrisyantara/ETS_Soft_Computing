@@ -14,7 +14,7 @@ df_mk = pd.read_csv("dataset - mata_kuliah.csv")
 list_ruangan = df_ruangan['id_ruangan'].tolist()
 list_slot = df_slot['id_slot'].tolist()
 
-# Pisahkan multi-dosen pada mata kuliah (sama seperti main.py)
+# Pisahkan multi-dosen pada mata kuliah 
 data_mk = []
 for _, row in df_mk.iterrows():
     dosen_pengajar = [d.strip() for d in str(row['dosen']).split(',')]
@@ -44,9 +44,6 @@ def order_courses(courses):
 
 def local_penalty(slot, room, dosen, used_rooms, used_dosen):
     """Penalti jika MK ditaruh di (slot, room): bentrok ruangan + bentrok dosen.
-
-    Konsisten dengan calculate_fitness di main.py (1 poin per jenis bentrok
-    per pasangan kelas).
     """
     penalty = 1 if (slot, room) in used_rooms else 0
     penalty += sum(1 for d in dosen if (slot, d) in used_dosen)
@@ -55,7 +52,6 @@ def local_penalty(slot, room, dosen, used_rooms, used_dosen):
 
 def greedy_schedule(courses):
     """Bangun jadwal: tiap MK dipilih pasangan (slot, ruangan) berpenalti terkecil.
-
     Pilihan bersifat lokal & final (tanpa backtracking). Tie-break: urutan
     slot lalu ruangan pada dataset, sehingga hasil deterministik.
     """
@@ -88,21 +84,6 @@ def greedy_schedule(courses):
     return schedule
 
 
-def calculate_penalty(schedule):
-    """Hitung total bentrok (identik dengan metrik penalti di main.py)."""
-    penalty = 0
-    for i in range(len(schedule)):
-        for j in range(i + 1, len(schedule)):
-            a, b = schedule[i], schedule[j]
-            if a["slot_waktu"] != b["slot_waktu"]:
-                continue
-            if a["ruangan"] == b["ruangan"]:
-                penalty += 1
-            if not set(a["dosen"]).isdisjoint(b["dosen"]):
-                penalty += 1
-    return penalty
-
-
 # ==========================================
 # 3. EKSEKUSI
 # ==========================================
@@ -114,14 +95,6 @@ start = time.perf_counter()
 best_schedule = greedy_schedule(data_mk)
 elapsed = time.perf_counter() - start
 
-total_penalty = calculate_penalty(best_schedule)
-fitness = 1.0 / (1.0 + total_penalty)
-
-if total_penalty == 0:
-    print(">>> JADWAL TANPA BENTROK DITEMUKAN <<<")
-else:
-    print(f"Greedy selesai dengan sisa bentrok: {total_penalty}")
-print(f"Sisa Bentrok: {total_penalty} | Fitness: {fitness:.4f}")
 print(f"Running time Greedy: {elapsed:.4f} detik")
 
 # ==========================================
