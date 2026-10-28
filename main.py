@@ -1,6 +1,7 @@
 import pandas as pd
 import random
 import copy
+import time
 
 # ==========================================
 # 1. MEMBACA & PRA-PEMROSESAN DATASET
@@ -92,6 +93,9 @@ POPULATION_SIZE = 50
 GENERATIONS = 200
 MUTATION_RATE = 0.1
 
+# Mulai hitung waktu eksekusi (hanya algoritma, tanpa baca CSV & output)
+start_time = time.perf_counter()
+
 # Membuat populasi awal
 population = [create_chromosome() for _ in range(POPULATION_SIZE)]
 
@@ -138,6 +142,9 @@ for gen in range(GENERATIONS):
 if history_penalty > 0:
     best_schedule = population[0]
     print(f"\nBatas generasi tercapai. Menampilkan jadwal terbaik dengan sisa bentrok: {history_penalty}")
+
+elapsed_time = time.perf_counter() - start_time
+print(f"Running time GA: {elapsed_time:.4f} detik")
 
 # ==========================================
 # 6. MENAMPILKAN DAN MENYIMPAN HASIL
