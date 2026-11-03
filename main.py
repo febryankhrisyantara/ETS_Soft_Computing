@@ -89,7 +89,7 @@ def mutate(chromosome, mutation_rate=0.1):
 # ==========================================
 # 5. TAHAP 3 & 6: MAIN LOOP (SELEKSI & ITERASI)
 # ==========================================
-POPULATION_SIZE = 50
+POPULATION_SIZE = 20
 GENERATIONS = 200
 MUTATION_RATE = 0.1
 

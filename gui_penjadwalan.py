@@ -9,6 +9,7 @@ from collections import Counter
 
 ALGO_GA = "Genetic Algorithm"
 ALGO_GREEDY = "Greedy Algorithm"
+ALGO_SA = "Simulated Annealing"
 
 
 class JadwalApp:
@@ -38,7 +39,7 @@ class JadwalApp:
 
         tk.Label(frame_kontrol, text="Algoritma:").grid(row=0, column=0, sticky="w")
         self.cmb_algo = ttk.Combobox(frame_kontrol, textvariable=self.algo_var, state="readonly",
-                                     values=[ALGO_GA, ALGO_GREEDY], width=18)
+                                     values=[ALGO_GA, ALGO_GREEDY, ALGO_SA], width=18)
         self.cmb_algo.grid(row=0, column=1, columnspan=2, padx=5, sticky="w")
         self.cmb_algo.bind("<<ComboboxSelected>>", self.on_algo_change)
 
@@ -262,6 +263,9 @@ class JadwalApp:
             start = time.perf_counter()
             if algo == ALGO_GREEDY:
                 best_schedule = self.solve_greedy(data_mk, list_ruangan, list_slot)
+            elif algo == ALGO_SA:
+                from simulated_annealing import simulated_annealing
+                best_schedule = simulated_annealing(data_mk, list_ruangan, list_slot)
             else:
                 best_schedule = self.solve_ga(data_mk, list_ruangan, list_slot, params)
             elapsed = time.perf_counter() - start
