@@ -72,7 +72,7 @@ def get_neighbor(schedule):
 # 3. ALGORITMA SIMULATED ANNEALING
 # ==========================================
 def simulated_annealing(
-    courses, initial_temp=500.0, cooling_rate=0.85, max_iter=5000
+    courses, initial_temp=1000.0, cooling_rate=0.85, max_iter=5000
 ):
   current_schedule = create_initial_schedule(courses)
   current_penalty = calculate_penalty(current_schedule)
@@ -87,14 +87,12 @@ def simulated_annealing(
     if best_penalty == 0:
       break
 
-    # Buat solusi tetangga
+    # solusi tetangga
     neighbor = get_neighbor(current_schedule)
     neighbor_penalty = calculate_penalty(neighbor)
 
-    # Selisih energi (penalti)
     delta_e = neighbor_penalty - current_penalty
 
-    # Jika tetangga lebih baik, atau diterima berdasarkan probabilitas suhu
     if delta_e < 0 or random.random() < math.exp(-delta_e / temp):
       current_schedule = neighbor
       current_penalty = neighbor_penalty
