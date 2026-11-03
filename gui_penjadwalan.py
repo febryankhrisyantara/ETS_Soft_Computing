@@ -203,15 +203,17 @@ class JadwalApp:
         load = Counter(d for mk in data_mk for d in mk["dosen"])
         ordered = sorted(
             data_mk,
-            key=lambda mk: (len(mk["dosen"]), sum(load[d] for d in mk["dosen"])),
+            key=lambda mk: (max(load[d] for d in mk["dosen"]), len(mk["dosen"])),
             reverse=True,
         )
 
         used_rooms = set()   # {(slot, ruangan)}
         used_dosen = set()   # {(slot, dosen)}
         schedule = []
+        total_penalty = 0
+        total_courses = len(ordered)
 
-        self.log(f"[INFO] Greedy menjadwalkan {len(ordered)} mata kuliah...")
+        self.log(f"[INFO] Greedy menjadwalkan {total_courses} mata kuliah...")
         for step, mk in enumerate(ordered, start=1):
             best = None  # (penalty, slot, room)
             for slot in list_slot:
@@ -225,13 +227,18 @@ class JadwalApp:
                 if best[0] == 0:
                     break
 
-            _, slot, room = best
+            p, slot, room = best
             used_rooms.add((slot, room))
             used_dosen.update((slot, d) for d in mk["dosen"])
-            self.log(f"[Langkah {step:02d}/{len(ordered)}] {mk['id_mk']} ({mk['nama_mk']}) -> "
-                     f"slot {slot}, ruangan {room}")
             schedule.append({"id_mk": mk["id_mk"], "nama_mk": mk["nama_mk"], "dosen": mk["dosen"],
                              "ruangan": room, "slot_waktu": slot})
+
+            total_penalty += p
+            current_fitness = 1.0 / (1.0 + total_penalty)
+            self.log(f"[Langkah {step:02d}/{total_courses}] {mk['id_mk']} ({mk['nama_mk']}) -> "
+                     f"Slot: {slot}, Ruang: {room} | Penalti: {total_penalty} | Fitness: {current_fitness:.4f}")
+
+        self.log(f">>> Jadwal Greedy selesai disusun | Total Penalti: {total_penalty} | Fitness Akhir: {current_fitness:.4f} <<<")
         return schedule
 
     def run_algorithm(self, algo, params):

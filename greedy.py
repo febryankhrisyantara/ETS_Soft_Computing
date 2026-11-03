@@ -26,19 +26,36 @@ for _, row in df_mk.iterrows():
 
 
 # ==========================================
-# 2. GREEDY ALGORITHM
+# 2. EVALUASI (FITNESS) & GREEDY ALGORITHM
 # ==========================================
+def calculate_fitness(schedule):
+    """Menghitung total penalti bentrok dan skor fitness jadwal.
+    Fitness formula: 1 / (1 + penalti). Sempurna jika = 1.0 (0 bentrok).
+    """
+    penalty = 0
+    total = len(schedule)
+    for i in range(total):
+        for j in range(i + 1, total):
+            if schedule[i]["slot_waktu"] == schedule[j]["slot_waktu"]:
+                # Bentrok ruangan
+                if schedule[i]["ruangan"] == schedule[j]["ruangan"]:
+                    penalty += 1
+                # Bentrok dosen
+                if not set(schedule[i]["dosen"]).isdisjoint(set(schedule[j]["dosen"])):
+                    penalty += 1
+    return 1.0 / (1.0 + penalty), penalty
+
+
 def order_courses(courses):
     """Urutkan MK dari yang paling sulit dijadwalkan (most-constrained-first).
-
     Why: MK dengan dosen ber-beban tinggi / banyak dosen punya pilihan slot
     paling sedikit, jadi harus ditempatkan sebelum slot habis.
     """
     load = Counter(d for mk in courses for d in mk["dosen"])
     return sorted(
         courses,
-        key=lambda mk: (len(mk["dosen"]), sum(load[d] for d in mk["dosen"])),
-        reverse=True,
+        key=lambda mk: (max(load[d] for d in mk["dosen"]), len(mk["dosen"])),
+        reverse=True
     )
 
 
@@ -50,16 +67,20 @@ def local_penalty(slot, room, dosen, used_rooms, used_dosen):
     return penalty
 
 
-def greedy_schedule(courses):
+def greedy_schedule(courses, verbose=True):
     """Bangun jadwal: tiap MK dipilih pasangan (slot, ruangan) berpenalti terkecil.
     Pilihan bersifat lokal & final (tanpa backtracking). Tie-break: urutan
     slot lalu ruangan pada dataset, sehingga hasil deterministik.
+    Menampilkan progress langkah demi langkah beserta penalti dan fitness.
     """
     used_rooms = set()   # {(slot, ruangan)}
     used_dosen = set()   # {(slot, dosen)}
     schedule = []
+    total_courses = len(courses)
+    cumulative_penalty = 0
 
-    for mk in order_courses(courses):
+    ordered = order_courses(courses)
+    for step, mk in enumerate(ordered, start=1):
         best = None  # (penalty, slot, room)
         for slot in list_slot:
             for room in list_ruangan:
@@ -71,7 +92,7 @@ def greedy_schedule(courses):
             if best[0] == 0:
                 break
 
-        _, slot, room = best
+        p, slot, room = best
         used_rooms.add((slot, room))
         used_dosen.update((slot, d) for d in mk["dosen"])
         schedule.append({
@@ -81,6 +102,20 @@ def greedy_schedule(courses):
             "ruangan": room,
             "slot_waktu": slot,
         })
+
+        cumulative_penalty += p
+        current_fitness = 1.0 / (1.0 + cumulative_penalty)
+
+        if verbose:
+            print(f"[Langkah {step:02d}/{total_courses}] {mk['id_mk']} ({mk['nama_mk']}) -> "
+                  f"Slot: {slot}, Ruang: {room} | Penalti: {cumulative_penalty} | Fitness: {current_fitness:.4f}")
+
+    if verbose:
+        final_fitness, final_penalty = calculate_fitness(schedule)
+        print("-" * 70)
+        print(f">>> JADWAL SELESAI DISUSUN | Total Penalti: {final_penalty} | Fitness Akhir: {final_fitness:.4f} <<<")
+        print("-" * 70)
+
     return schedule
 
 
@@ -115,3 +150,11 @@ print("=" * 70)
 print(df_hasil.to_string(index=False))
 
 # df_hasil.to_csv("jadwal_greedy.csv", index=False)
+
+#dosen tersibuk
+# key=lambda mk: (max(load[d] for d in mk["dosen"]), len(mk["dosen"])),
+# reverse=True,
+
+# rata rata beban dosen
+# key=lambda mk: sum(load[d] for d in mk["dosen"]) / len(mk["dosen"]),
+# reverse=True,
